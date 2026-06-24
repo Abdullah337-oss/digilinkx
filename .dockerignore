@@ -1,0 +1,8 @@
+node_modules
+client/build
+build
+uploads
+tmp
+*.log
+.git
+node_sqlite3.node

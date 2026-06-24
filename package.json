@@ -1,0 +1,71 @@
+{
+  "name": "digilinks-todo-app",
+  "version": "1.0.0",
+  "description": "Digilinkx Todo App - A Trello-like todo app built with React and Node.js",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm start",
+    "client": "cd client && npm start",
+    "electron": "electron .",
+    "build": "cd client && npm run build",
+    "dist": "npm run build && electron-builder --win --x64",
+    "build-exe": "npm run build && electron-builder --win --x64 --dir",
+    "electron-build-installer": "npm run build && electron-builder --win --x64 --publish never"
+  },
+  "engines": {
+    "node": ">=18 <21",
+    "npm": ">=9"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "jwt-simple": "^0.5.6",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^8.0.4",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.1",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "nodemon": "^2.0.20",
+    "wait-on": "^7.0.1"
+  },
+    "build": {
+    "appId": "com.digilinks.todo",
+    "productName": "Digilinkx Todo",
+    "npmRebuild": false,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "server/**/*",
+      "client/build/**/*",
+      "tmp-logo.png",
+      "Digilinkx-Logo_Dashboard.png",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/sqlite3/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Digilinkx Todo"
+    }
+  }
+}
