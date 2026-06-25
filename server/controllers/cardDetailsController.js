@@ -1,6 +1,25 @@
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { logCardActivity } = require('../utils/cardActivity');
+const {
+  isSupabaseStorageEnabled,
+  uploadToSupabaseStorage,
+  deleteFromSupabaseStorage,
+} = require('../utils/supabaseStorage');
+
+const getUploadsPath = () => process.env.UPLOADS_PATH || path.join(__dirname, '../uploads');
+
+const saveFileLocally = (file) => {
+  const uploadsPath = getUploadsPath();
+  if (!fs.existsSync(uploadsPath)) {
+    fs.mkdirSync(uploadsPath, { recursive: true });
+  }
+  const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
+  const safeName = `${uniqueSuffix}-${file.originalname}`;
+  fs.writeFileSync(path.join(uploadsPath, safeName), file.buffer);
+  return safeName;
+};
 
 const addLabel = (db) => (req, res) => {
   const { name, color } = req.body;
@@ -151,17 +170,32 @@ const addChecklistItem = (db) => (req, res) => {
   );
 };
 
-const uploadAttachment = (db) => (req, res) => {
+const uploadAttachment = (db) => async (req, res) => {
   const files = req.files;
   if (!files || !files.length) return res.status(400).json({ error: 'No files uploaded' });
   const attachments = [];
   let completed = 0;
   let failed = false;
   for (const file of files) {
+    let storedFilePath = '';
+    let storedUrl = null;
+    try {
+      if (isSupabaseStorageEnabled()) {
+        const uploaded = await uploadToSupabaseStorage({ cardId: req.params.cardId, file });
+        storedFilePath = uploaded.objectPath;
+        storedUrl = uploaded.publicUrl;
+      } else {
+        storedFilePath = saveFileLocally(file);
+      }
+    } catch (uploadErr) {
+      failed = true;
+      return res.status(500).json({ error: uploadErr.message });
+    }
+
     db.run(
       `INSERT INTO attachments (card_id, file_name, file_path, file_size, uploaded_by_id, attachment_type, url, is_cover)
-       VALUES (?, ?, ?, ?, ?, 'file', NULL, 0)`,
-      [req.params.cardId, file.originalname, file.filename, file.size, req.user.id],
+       VALUES (?, ?, ?, ?, ?, 'file', ?, 0)`,
+      [req.params.cardId, file.originalname, storedFilePath, file.size, req.user.id, storedUrl],
       function (err) {
         if (failed) return;
         if (err) {
@@ -172,11 +206,11 @@ const uploadAttachment = (db) => (req, res) => {
           id: this.lastID,
           card_id: Number(req.params.cardId),
           file_name: file.originalname,
-          file_path: file.filename,
+          file_path: storedFilePath,
           file_size: file.size,
           uploaded_by_id: req.user.id,
           attachment_type: 'file',
-          url: null,
+          url: storedUrl,
           is_cover: 0,
         });
         logCardActivity(db, {
@@ -235,9 +269,14 @@ const deleteAttachment = (db) => (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!attachment) return res.status(404).json({ error: 'Attachment not found' });
     if ((attachment.attachment_type || 'file') === 'file' && attachment.file_path) {
-      const uploadsPath = process.env.UPLOADS_PATH || path.join(__dirname, '../uploads');
-      const filePath = path.join(uploadsPath, attachment.file_path);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      if (attachment.url && isSupabaseStorageEnabled()) {
+        deleteFromSupabaseStorage(attachment.file_path).catch((deleteErr) => {
+          console.warn('Failed to delete Supabase attachment:', deleteErr.message);
+        });
+      } else {
+        const filePath = path.join(getUploadsPath(), attachment.file_path);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      }
     }
     db.run(`DELETE FROM attachments WHERE id = ?`, [req.params.attachmentId], function (err) {
       if (err) return res.status(500).json({ error: err.message });
@@ -316,11 +355,10 @@ const downloadAttachment = (db) => (req, res) => {
   db.get(`SELECT * FROM attachments WHERE id = ?`, [req.params.attachmentId], (err, attachment) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!attachment) return res.status(404).json({ error: 'Attachment not found' });
-    if ((attachment.attachment_type || 'file') === 'link') {
+    if ((attachment.attachment_type || 'file') === 'link' || attachment.url) {
       return res.redirect(attachment.url);
     }
-    const uploadsPath = process.env.UPLOADS_PATH || path.join(__dirname, '../uploads');
-    const filePath = path.join(uploadsPath, attachment.file_path);
+    const filePath = path.join(getUploadsPath(), attachment.file_path);
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'File not found on server' });
     }
@@ -353,11 +391,10 @@ const viewSharedAttachment = (db) => (req, res) => {
   db.get(`SELECT * FROM attachments WHERE share_token = ? OR id = ?`, [shareToken, shareToken], (err, attachment) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!attachment) return res.status(404).json({ error: 'Attachment not found' });
-    if ((attachment.attachment_type || 'file') === 'link') {
+    if ((attachment.attachment_type || 'file') === 'link' || attachment.url) {
       return res.redirect(attachment.url);
     }
-    const uploadsPath = process.env.UPLOADS_PATH || path.join(__dirname, '../uploads');
-    const filePath = path.join(uploadsPath, attachment.file_path);
+    const filePath = path.join(getUploadsPath(), attachment.file_path);
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'File not found' });
     }

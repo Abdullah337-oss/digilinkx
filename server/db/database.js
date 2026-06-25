@@ -3,6 +3,9 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const bcrypt = require('bcryptjs');
+const PostgresAdapter = require('./postgresAdapter');
+
+let db;
 
 const isElectronProduction = process.env.NODE_ENV === 'production' && !!process.versions.electron;
 const appDataDirectory = process.env.APPDATA || process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
@@ -13,36 +16,48 @@ const dbPath = process.env.SHARED_DB_PATH
   || process.env.DB_PATH
   || (isElectronProduction ? defaultAppDataDbPath : path.join(__dirname, 'todo.db'));
 
-const dbDir = path.dirname(dbPath);
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
-
-// Create/connect to database
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error opening database:', err.message);
-  } else {
-    console.log('Connected to SQLite database at:', dbPath);
-    // Enable WAL mode for better concurrent access when multiple exes share the DB
-    db.run('PRAGMA journal_mode=WAL', (walErr) => {
-      if (walErr) {
-        console.error('Failed to set WAL mode:', walErr.message);
-      }
+if (process.env.DATABASE_URL) {
+  db = new PostgresAdapter();
+  db.ready
+    .then(() => {
+      seedDefaultUsers();
+      seedLogoAsset();
+    })
+    .catch((err) => {
+      console.error('Error opening PostgreSQL database:', err.message);
     });
-    db.run('PRAGMA busy_timeout=5000', (busyErr) => {
-      if (busyErr) {
-        console.error('Failed to set busy timeout:', busyErr.message);
-      }
-    });
-    db.run('PRAGMA foreign_keys = ON', (pragmaErr) => {
-      if (pragmaErr) {
-        console.error('Failed to enable SQLite foreign keys:', pragmaErr.message);
-      }
-      initializeDatabase();
-    });
+} else {
+  const dbDir = path.dirname(dbPath);
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
   }
-});
+
+  // Create/connect to database
+  db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+      console.error('Error opening database:', err.message);
+    } else {
+      console.log('Connected to SQLite database at:', dbPath);
+      // Enable WAL mode for better concurrent access when multiple exes share the DB
+      db.run('PRAGMA journal_mode=WAL', (walErr) => {
+        if (walErr) {
+          console.error('Failed to set WAL mode:', walErr.message);
+        }
+      });
+      db.run('PRAGMA busy_timeout=5000', (busyErr) => {
+        if (busyErr) {
+          console.error('Failed to set busy timeout:', busyErr.message);
+        }
+      });
+      db.run('PRAGMA foreign_keys = ON', (pragmaErr) => {
+        if (pragmaErr) {
+          console.error('Failed to enable SQLite foreign keys:', pragmaErr.message);
+        }
+        initializeDatabase();
+      });
+    }
+  });
+}
 
 function initializeDatabase() {
   // Users table

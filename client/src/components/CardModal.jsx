@@ -76,11 +76,15 @@ function CardModal({
         : `${backendBaseUrl}${attachment.file_url}`;
     }
 
+    if (attachment.url) {
+      return attachment.url;
+    }
+
     if (attachment.file_path) {
       return `${backendBaseUrl}/uploads/${attachment.file_path}`;
     }
 
-    return attachment.url || '';
+    return '';
   };
 
   const isImageAttachmentCandidate = (candidate) => {
@@ -910,7 +914,7 @@ function CardModal({
   };
 
   const handleDownloadAttachment = async (attachment) => {
-    if ((attachment?.attachment_type || 'file') === 'link') {
+    if ((attachment?.attachment_type || 'file') === 'link' || attachment?.url) {
       if (attachment.url) {
         window.open(attachment.url, '_blank', 'noopener,noreferrer');
       }

@@ -77,10 +77,16 @@ function ConnectionSettings({ onClose }) {
           setUrlError('Invalid server address');
           return;
         }
-        if (!parsed.port) {
+        const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+        const isIpv4 = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(parsed.hostname);
+        if (parsed.protocol === 'https:' && parsed.hostname.endsWith('.onrender.com') && parsed.port === '5000') {
+          url = `${parsed.protocol}//${parsed.hostname}`;
+        } else if (!parsed.port && parsed.protocol === 'http:' && (isLocalhost || isIpv4)) {
           url = `${parsed.protocol}//${parsed.hostname}:5000`;
         } else {
-          url = `${parsed.protocol}//${parsed.hostname}:${parsed.port}`;
+          url = parsed.port
+            ? `${parsed.protocol}//${parsed.hostname}:${parsed.port}`
+            : `${parsed.protocol}//${parsed.hostname}`;
         }
       } catch (_) {
         setUrlError('Invalid format. Enter the server IP, e.g. 192.168.1.52:5000');
@@ -176,7 +182,7 @@ function ConnectionSettings({ onClose }) {
                 onClick={() => setMode('client')}
               >
                 <div className="mode-card-title">Connect to Server</div>
-                <div className="mode-card-desc">Connect to an existing server on your network.</div>
+                <div className="mode-card-desc">Connect to the cloud backend or a network server.</div>
               </div>
             </div>
 
@@ -187,7 +193,7 @@ function ConnectionSettings({ onClose }) {
                   type="text"
                   value={serverUrl}
                   onChange={(e) => { setServerUrl(e.target.value); setUrlError(''); }}
-                  placeholder="192.168.1.50:5000"
+                  placeholder="https://digilinkx-server.onrender.com"
                 />
                 {urlError && <div className="url-error">{urlError}</div>}
               </div>

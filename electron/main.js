@@ -5,6 +5,8 @@ const http = require('http');
 
 app.setAppUserModelId('com.digilinks.todo');
 
+const DEFAULT_REMOTE_API_URL = 'https://digilinkx-server.onrender.com';
+
 let mainWindow;
 let clientAssetServer = null;
 
@@ -83,7 +85,7 @@ function loadAppConfig() {
       }
     }
     if (!config.remoteApiUrl && !config.sharedDbPath) {
-      const defaultConfig = { remoteApiUrl: '', sharedDbPath: '' };
+      const defaultConfig = { remoteApiUrl: DEFAULT_REMOTE_API_URL, sharedDbPath: '' };
       try {
         fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2), 'utf8');
       } catch (err) {
@@ -119,13 +121,22 @@ function normalizeApiBaseUrl(url) {
     normalized = normalized.slice(0, -1);
   }
 
-  // Parse with URL constructor and add default port 5000 where missing.
+  // Parse with URL constructor and add default port 5000 only for local/LAN HTTP hosts.
   try {
     const parsed = new URL(normalized);
-    const protocol = parsed.protocol || 'http:';
     const hostname = parsed.hostname;
-    const port = parsed.port || '5000';
-    normalized = `${protocol}//${hostname}:${port}`;
+    if (parsed.protocol === 'https:' && hostname.endsWith('.onrender.com') && parsed.port === '5000') {
+      parsed.port = '';
+    }
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+    const isIpv4 = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname);
+    if (!parsed.port && parsed.protocol === 'http:' && (isLocalhost || isIpv4)) {
+      parsed.port = '5000';
+    }
+    parsed.pathname = '';
+    parsed.search = '';
+    parsed.hash = '';
+    normalized = parsed.toString().replace(/\/$/, '');
   } catch (_) {
     return null;
   }
@@ -200,7 +211,7 @@ function startPackagedClientServer() {
 function setupDataPaths() {
   const userDataPath = app.getPath('userData');
   let appConfig = loadAppConfig();
-  const rawRemoteApiUrl = appConfig.remoteApiUrl || process.env.REMOTE_API_URL || null;
+  const rawRemoteApiUrl = appConfig.remoteApiUrl || process.env.REMOTE_API_URL || DEFAULT_REMOTE_API_URL;
   const remoteApiUrl = normalizeApiBaseUrl(rawRemoteApiUrl);
   const sharedDbPath = appConfig.sharedDbPath || process.env.SHARED_DB_PATH || null;
 
@@ -330,7 +341,7 @@ app.whenReady().then(async () => {
     setupIpcHandlers();
 
     const initialConfig = loadAppConfig();
-    const hasServerConfig = process.env.REMOTE_API_URL || initialConfig.remoteApiUrl;
+    const hasServerConfig = process.env.REMOTE_API_URL || initialConfig.remoteApiUrl || DEFAULT_REMOTE_API_URL;
     if (!hasServerConfig && !initialConfig.sharedDbPath) {
       console.log('No server configured, searching for server on LAN...');
       logStartup('No server configured, searching for server on LAN...');

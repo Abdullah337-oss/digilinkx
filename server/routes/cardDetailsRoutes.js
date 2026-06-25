@@ -1,27 +1,8 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
-
-const getUploadsPath = () => process.env.UPLOADS_PATH || path.join(__dirname, '../uploads');
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    const dir = getUploadsPath();
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    cb(null, dir);
-  },
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
-    cb(null, `${uniqueSuffix}-${file.originalname}`);
-  },
-});
 
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 

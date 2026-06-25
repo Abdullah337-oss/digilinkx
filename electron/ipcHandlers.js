@@ -17,10 +17,19 @@ function normalizeApiBaseUrl(url) {
 
   try {
     const parsed = new URL(normalized);
-    const protocol = parsed.protocol || 'http:';
     const hostname = parsed.hostname;
-    const port = parsed.port || '5000';
-    return `${protocol}//${hostname}:${port}`;
+    if (parsed.protocol === 'https:' && hostname.endsWith('.onrender.com') && parsed.port === '5000') {
+      parsed.port = '';
+    }
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+    const isIpv4 = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname);
+    if (!parsed.port && parsed.protocol === 'http:' && (isLocalhost || isIpv4)) {
+      parsed.port = '5000';
+    }
+    parsed.pathname = '';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString().replace(/\/$/, '');
   } catch (_) {
     return '';
   }

@@ -20,6 +20,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
@@ -36,7 +37,7 @@
     "nodemon": "^2.0.20",
     "wait-on": "^7.0.1"
   },
-    "build": {
+  "build": {
     "appId": "com.digilinks.todo",
     "productName": "Digilinkx Todo",
     "npmRebuild": false,

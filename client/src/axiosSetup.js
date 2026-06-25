@@ -1,5 +1,14 @@
 import axios from 'axios';
 
+const DEFAULT_API_BASE_URL = 'https://digilinkx-server.onrender.com';
+
+const shouldUseDefaultPort = (parsed) => {
+  const hostname = parsed.hostname;
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+  const isIpv4 = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname);
+  return !parsed.port && parsed.protocol === 'http:' && (isLocalhost || isIpv4);
+};
+
 const normalizeApiBaseUrl = (url) => {
   if (!url || typeof url !== 'string') return null;
   let normalized = url.trim();
@@ -21,10 +30,16 @@ const normalizeApiBaseUrl = (url) => {
 
   try {
     const parsed = new URL(normalized);
-    const protocol = parsed.protocol || 'http:';
-    const hostname = parsed.hostname;
-    const port = parsed.port || '5000';
-    normalized = `${protocol}//${hostname}:${port}`;
+    if (parsed.protocol === 'https:' && parsed.hostname.endsWith('.onrender.com') && parsed.port === '5000') {
+      parsed.port = '';
+    }
+    if (shouldUseDefaultPort(parsed)) {
+      parsed.port = '5000';
+    }
+    parsed.pathname = '';
+    parsed.search = '';
+    parsed.hash = '';
+    normalized = parsed.toString().replace(/\/$/, '');
   } catch (_) {
     return null;
   }
@@ -34,7 +49,7 @@ const normalizeApiBaseUrl = (url) => {
 
 const remoteApiBaseUrl = typeof window !== 'undefined' && window.appConfig?.apiBaseUrl
   ? normalizeApiBaseUrl(window.appConfig.apiBaseUrl)
-  : null;
+  : normalizeApiBaseUrl(DEFAULT_API_BASE_URL);
 
 axios.defaults.baseURL = remoteApiBaseUrl || '';
 
