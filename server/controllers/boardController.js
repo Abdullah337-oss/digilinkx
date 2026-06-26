@@ -26,11 +26,22 @@ const createBoard = (db) => (req, res) => {
 
 const getUserBoards = (db) => (req, res) => {
   const userId = req.user.id;
+  if (req.user.role === 'admin') {
+    db.all(
+      `SELECT * FROM boards ORDER BY created_at DESC`,
+      [],
+      (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+      }
+    );
+    return;
+  }
+
   db.all(
     `SELECT DISTINCT b.* FROM boards b
      LEFT JOIN board_members bm ON bm.board_id = b.id
-     LEFT JOIN users u ON u.id = b.owner_id
-     WHERE b.owner_id = ? OR bm.user_id = ? OR u.role = 'admin'
+     WHERE b.owner_id = ? OR bm.user_id = ?
      ORDER BY b.created_at DESC`,
     [userId, userId],
     (err, rows) => {

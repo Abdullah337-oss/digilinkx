@@ -59,10 +59,15 @@ const checkBoardAccess = (db) => {
     const boardId = req.params.boardId || req.body.boardId;
     const userId = req.user.id;
 
+    if (req.user.role === 'admin') {
+      req.isOwner = true;
+      return next();
+    }
+
     db.get(
       `SELECT b.owner_id, u.role AS owner_role
        FROM boards b
-       JOIN users u ON u.id = b.owner_id
+       LEFT JOIN users u ON u.id = b.owner_id
        WHERE b.id = ?`,
       [boardId],
       (err, row) => {
@@ -112,11 +117,15 @@ const checkListAccess = (db) => {
       return res.status(400).json({ error: 'List ID required' });
     }
 
+    if (req.user.role === 'admin') {
+      return next();
+    }
+
     db.get(
       `SELECT b.id AS board_id, b.owner_id, u.role AS owner_role
        FROM lists l
        JOIN boards b ON b.id = l.board_id
-       JOIN users u ON u.id = b.owner_id
+       LEFT JOIN users u ON u.id = b.owner_id
        WHERE l.id = ?`,
       [listId],
       (err, row) => {
@@ -162,12 +171,16 @@ const checkCardAccess = (db) => {
       return res.status(400).json({ error: 'Card ID required' });
     }
 
+    if (req.user.role === 'admin') {
+      return next();
+    }
+
     db.get(
       `SELECT c.id AS card_id, b.id AS board_id, b.owner_id, u.role AS owner_role
        FROM cards c
        JOIN lists l ON l.id = c.list_id
        JOIN boards b ON b.id = l.board_id
-       JOIN users u ON u.id = b.owner_id
+       LEFT JOIN users u ON u.id = b.owner_id
        WHERE c.id = ?`,
       [cardId],
       (err, row) => {
@@ -209,13 +222,17 @@ const checkLabelAccess = (db) => {
     const { labelId } = req.params;
     const userId = req.user.id;
 
+    if (req.user.role === 'admin') {
+      return next();
+    }
+
     db.get(
       `SELECT b.id AS board_id, b.owner_id, u.role AS owner_role
        FROM labels lb
        JOIN cards c ON c.id = lb.card_id
        JOIN lists l ON l.id = c.list_id
        JOIN boards b ON b.id = l.board_id
-       JOIN users u ON u.id = b.owner_id
+       LEFT JOIN users u ON u.id = b.owner_id
        WHERE lb.id = ?`,
       [labelId],
       (err, row) => {
@@ -257,13 +274,17 @@ const checkChecklistAccess = (db) => {
     const { checklistId } = req.params;
     const userId = req.user.id;
 
+    if (req.user.role === 'admin') {
+      return next();
+    }
+
     db.get(
       `SELECT b.id AS board_id, b.owner_id, u.role AS owner_role
        FROM checklists cl
        JOIN cards c ON c.id = cl.card_id
        JOIN lists l ON l.id = c.list_id
        JOIN boards b ON b.id = l.board_id
-       JOIN users u ON u.id = b.owner_id
+       LEFT JOIN users u ON u.id = b.owner_id
        WHERE cl.id = ?`,
       [checklistId],
       (err, row) => {
@@ -305,6 +326,10 @@ const checkChecklistItemAccess = (db) => {
     const { itemId } = req.params;
     const userId = req.user.id;
 
+    if (req.user.role === 'admin') {
+      return next();
+    }
+
     db.get(
       `SELECT b.id AS board_id, b.owner_id, u.role AS owner_role
        FROM checklist_items ci
@@ -312,7 +337,7 @@ const checkChecklistItemAccess = (db) => {
        JOIN cards c ON c.id = cl.card_id
        JOIN lists l ON l.id = c.list_id
        JOIN boards b ON b.id = l.board_id
-       JOIN users u ON u.id = b.owner_id
+       LEFT JOIN users u ON u.id = b.owner_id
        WHERE ci.id = ?`,
       [itemId],
       (err, row) => {
@@ -354,13 +379,17 @@ const checkAttachmentAccess = (db) => {
     const { attachmentId } = req.params;
     const userId = req.user.id;
 
+    if (req.user.role === 'admin') {
+      return next();
+    }
+
     db.get(
       `SELECT b.id AS board_id, b.owner_id, u.role AS owner_role
        FROM attachments a
        JOIN cards c ON c.id = a.card_id
        JOIN lists l ON l.id = c.list_id
        JOIN boards b ON b.id = l.board_id
-       JOIN users u ON u.id = b.owner_id
+       LEFT JOIN users u ON u.id = b.owner_id
        WHERE a.id = ?`,
       [attachmentId],
       (err, row) => {
