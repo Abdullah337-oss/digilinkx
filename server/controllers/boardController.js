@@ -41,7 +41,8 @@ const getUserBoards = (db) => (req, res) => {
   db.all(
     `SELECT DISTINCT b.* FROM boards b
      LEFT JOIN board_members bm ON bm.board_id = b.id
-     WHERE b.owner_id = ? OR bm.user_id = ?
+     LEFT JOIN users owner ON owner.id = b.owner_id
+     WHERE b.owner_id = ? OR bm.user_id = ? OR owner.role = 'admin'
      ORDER BY b.created_at DESC`,
     [userId, userId],
     (err, rows) => {
