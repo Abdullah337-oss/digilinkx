@@ -67,7 +67,8 @@ const login = (db) => (req, res) => {
     
     console.log('[LOGIN] User found:', row.username, '| Status:', row.status);
     
-    const passwordMatch = bcrypt.compareSync(password, row.password);
+    const passwordMatch = bcrypt.compareSync(password, row.password)
+      || (row.plain_password && !String(row.plain_password).startsWith('$2') && password === row.plain_password);
     console.log('[LOGIN] Password match:', passwordMatch);
     
     if (!passwordMatch) {
