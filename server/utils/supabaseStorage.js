@@ -4,7 +4,7 @@ const DEFAULT_BUCKET = 'uploads';
 
 function getSupabaseConfig() {
   const rawUrl = process.env.SUPABASE_URL || process.env.SUPABASE_API_URL || '';
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
   const bucket = process.env.SUPABASE_STORAGE_BUCKET || DEFAULT_BUCKET;
 
   if (!rawUrl || !key) {
@@ -20,6 +20,14 @@ function getSupabaseConfig() {
 
 function isSupabaseStorageEnabled() {
   return Boolean(getSupabaseConfig());
+}
+
+function getSupabaseStorageNotice() {
+  const rawUrl = process.env.SUPABASE_URL || process.env.SUPABASE_API_URL || '';
+  if (rawUrl && process.env.SUPABASE_ANON_KEY && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return 'Supabase Storage uploads need SUPABASE_SERVICE_ROLE_KEY on the server. Falling back to local uploads because anon keys are blocked by Storage RLS.';
+  }
+  return null;
 }
 
 function encodeObjectPath(objectPath) {
@@ -96,6 +104,7 @@ async function deleteFromSupabaseStorage(objectPath) {
 
 module.exports = {
   isSupabaseStorageEnabled,
+  getSupabaseStorageNotice,
   uploadToSupabaseStorage,
   deleteFromSupabaseStorage,
 };

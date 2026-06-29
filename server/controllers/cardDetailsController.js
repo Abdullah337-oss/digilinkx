@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { logCardActivity } = require('../utils/cardActivity');
 const {
   isSupabaseStorageEnabled,
+  getSupabaseStorageNotice,
   uploadToSupabaseStorage,
   deleteFromSupabaseStorage,
 } = require('../utils/supabaseStorage');
@@ -176,6 +177,10 @@ const uploadAttachment = (db) => async (req, res) => {
   const attachments = [];
   let completed = 0;
   let failed = false;
+  const storageNotice = getSupabaseStorageNotice();
+  if (storageNotice) {
+    console.warn(storageNotice);
+  }
   for (const file of files) {
     let storedFilePath = '';
     let storedUrl = null;

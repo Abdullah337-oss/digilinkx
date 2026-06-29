@@ -110,6 +110,20 @@ todo-app/
 - JWT Authentication
 - Bcryptjs
 
+## Attachment Storage
+
+Card attachment uploads are saved locally unless Supabase Storage is configured with a server-side service role key.
+
+Required environment variables for Supabase Storage uploads:
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_STORAGE_BUCKET=uploads
+```
+
+Do not use `SUPABASE_ANON_KEY` for server attachment uploads. Supabase Storage applies row-level security to anon keys and can reject uploads with `new row violates row-level security policy`.
+
 ## Notes
 
 - The application uses SQLite for local database storage
