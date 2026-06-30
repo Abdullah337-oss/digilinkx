@@ -202,47 +202,103 @@ const moveCard = (db) => (req, res) => {
   if (resolvedListId === undefined && position === undefined) {
     return res.status(400).json({ error: 'List ID or position required' });
   }
-  const fields = [];
-  const values = [];
-  if (resolvedListId !== undefined) { fields.push('list_id = ?'); values.push(resolvedListId); }
-  if (position !== undefined) { fields.push('position = ?'); values.push(position); }
-  fields.push('updated_at = CURRENT_TIMESTAMP');
-  values.push(req.params.cardId);
-  db.run(
-    `UPDATE cards SET ${fields.join(', ')} WHERE id = ?`,
-    values,
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      if (this.changes === 0) return res.status(404).json({ error: 'Card not found' });
 
-      const logAndReturn = (listTitle) => {
-        logCardActivity(db, {
-          cardId: Number(req.params.cardId),
-          userId: req.user.id,
-          actionType: 'card_moved',
-          message: listTitle ? `Card moved to ${listTitle}` : 'Card moved',
-        }, (logErr) => {
-          if (logErr) console.error('Failed to log card activity', logErr);
-          db.get(`SELECT * FROM cards WHERE id = ?`, [req.params.cardId], (err, card) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ message: 'Card moved', card });
-          });
+  const cardId = Number(req.params.cardId);
+  const requestedPosition = Number.isInteger(Number(position)) ? Number(position) : 0;
+
+  db.get('SELECT * FROM cards WHERE id = ?', [cardId], (err, currentCard) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!currentCard) return res.status(404).json({ error: 'Card not found' });
+
+    const sourceListId = Number(currentCard.list_id);
+    const targetListId = resolvedListId !== undefined ? Number(resolvedListId) : sourceListId;
+    if (!Number.isInteger(targetListId)) {
+      return res.status(400).json({ error: 'Valid list ID required' });
+    }
+
+    const logAndReturn = (listTitle) => {
+      logCardActivity(db, {
+        cardId,
+        userId: req.user.id,
+        actionType: 'card_moved',
+        message: listTitle ? `Card moved to ${listTitle}` : 'Card moved',
+      }, (logErr) => {
+        if (logErr) console.error('Failed to log card activity', logErr);
+        db.get(`SELECT * FROM cards WHERE id = ?`, [cardId], (err, card) => {
+          if (err) return res.status(500).json({ error: err.message });
+          res.json({ message: 'Card moved', card });
         });
+      });
+    };
+
+    const finishMove = () => {
+      db.get('SELECT title FROM lists WHERE id = ?', [targetListId], (err, row) => {
+        if (err) {
+          console.error('Failed to read list title for move log', err);
+          return logAndReturn();
+        }
+        logAndReturn(row?.title || 'Unknown list');
+      });
+    };
+
+    const updateCardsInOrder = (cards, callback) => {
+      if (cards.length === 0) return callback();
+      let completed = 0;
+      let sent = false;
+      const done = (updateErr) => {
+        if (sent) return;
+        if (updateErr) {
+          sent = true;
+          return callback(updateErr);
+        }
+        completed++;
+        if (completed === cards.length) callback();
       };
 
-      if (resolvedListId !== undefined) {
-        db.get('SELECT title FROM lists WHERE id = ?', [resolvedListId], (err, row) => {
-          if (err) {
-            console.error('Failed to read list title for move log', err);
-            return logAndReturn();
-          }
-          logAndReturn(row?.title || 'Unknown list');
+      cards.forEach((card, index) => {
+        db.run(
+          'UPDATE cards SET list_id = ?, position = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [card.list_id, index, card.id],
+          done
+        );
+      });
+    };
+
+    if (sourceListId === targetListId) {
+      db.all('SELECT * FROM cards WHERE list_id = ? ORDER BY position ASC, created_at ASC', [sourceListId], (err, cards) => {
+        if (err) return res.status(500).json({ error: err.message });
+        const withoutMoved = cards.filter((card) => Number(card.id) !== cardId);
+        const insertAt = Math.max(0, Math.min(requestedPosition, withoutMoved.length));
+        withoutMoved.splice(insertAt, 0, { ...currentCard, list_id: sourceListId });
+
+        updateCardsInOrder(withoutMoved, (updateErr) => {
+          if (updateErr) return res.status(500).json({ error: updateErr.message });
+          finishMove();
         });
-      } else {
-        logAndReturn();
-      }
+      });
+      return;
     }
-  );
+
+    db.all('SELECT * FROM cards WHERE list_id = ? ORDER BY position ASC, created_at ASC', [sourceListId], (err, sourceCards) => {
+      if (err) return res.status(500).json({ error: err.message });
+      db.all('SELECT * FROM cards WHERE list_id = ? ORDER BY position ASC, created_at ASC', [targetListId], (err, targetCards) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        const nextSourceCards = sourceCards.filter((card) => Number(card.id) !== cardId);
+        const nextTargetCards = targetCards.filter((card) => Number(card.id) !== cardId);
+        const insertAt = Math.max(0, Math.min(requestedPosition, nextTargetCards.length));
+        nextTargetCards.splice(insertAt, 0, { ...currentCard, list_id: targetListId });
+
+        updateCardsInOrder(nextSourceCards, (sourceUpdateErr) => {
+          if (sourceUpdateErr) return res.status(500).json({ error: sourceUpdateErr.message });
+          updateCardsInOrder(nextTargetCards, (targetUpdateErr) => {
+            if (targetUpdateErr) return res.status(500).json({ error: targetUpdateErr.message });
+            finishMove();
+          });
+        });
+      });
+    }
+  });
 };
 
 module.exports = {
