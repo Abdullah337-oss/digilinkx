@@ -197,7 +197,22 @@ class PostgresAdapter {
     for (const statement of schemaStatements) {
       await this.pool.query(statement);
     }
+    await this.ensureColumn('boards', 'updated_at', 'TIMESTAMP');
+    await this.ensureColumn('boards', 'position', 'INTEGER DEFAULT 0');
     console.log('Connected to PostgreSQL database');
+  }
+
+  async ensureColumn(tableName, columnName, definition) {
+    const result = await this.pool.query(
+      `SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2`,
+      [tableName, columnName]
+    );
+
+    if (result.rowCount === 0) {
+      await this.pool.query(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+    }
   }
 
   async tableInfo(tableName) {
