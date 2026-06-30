@@ -667,9 +667,19 @@ function Board({ user, onLogout }) {
                             <div
                               ref={provided.innerRef}
                               {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              className={snapshot.isDragging ? 'dragging' : ''}
+                              className={`card-draggable-shell${snapshot.isDragging ? ' dragging' : ''}`}
                             >
+                              <div
+                                className="card-drag-handle"
+                                {...provided.dragHandleProps}
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`Drag card ${card.title}`}
+                                title="Drag card"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                ::
+                              </div>
                               <Card
                                 card={card}
                                 onClick={() => handleCardClick(card)}

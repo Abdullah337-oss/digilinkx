@@ -1319,9 +1319,19 @@ function Dashboard({ user, onLogout }) {
                               <div
                                 ref={dp.innerRef}
                                 {...dp.draggableProps}
-                                {...dp.dragHandleProps}
-                                className={ds.isDragging ? 'dragging' : ''}
+                                className={`card-draggable-shell${ds.isDragging ? ' dragging' : ''}`}
                               >
+                                <div
+                                  className="card-drag-handle"
+                                  {...dp.dragHandleProps}
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-label={`Drag card ${card.title}`}
+                                  title="Drag card"
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  ::
+                                </div>
                                 <Card
                                   card={card}
                                   onClick={() => handleCardClick(card)}
