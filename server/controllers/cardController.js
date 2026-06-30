@@ -297,7 +297,7 @@ const moveCard = (db) => (req, res) => {
           });
         });
       });
-    }
+    });
   });
 };
 
