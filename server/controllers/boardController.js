@@ -3,23 +3,29 @@ const bcrypt = require('bcryptjs');
 const createBoard = (db) => (req, res) => {
   const { title } = req.body;
   if (!title) return res.status(400).json({ error: 'Board title is required' });
-  db.run('INSERT INTO boards (title, owner_id) VALUES (?, ?)', [title, req.user.id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    const boardId = this.lastID;
-    const defaultLists = ['Assigned', 'Working', 'Done', 'On Hold', 'Revision', 'Finished'];
-    let completed = 0;
-    const respond = () => {
-      completed++;
-      if (completed === defaultLists.length) {
-        db.all('SELECT * FROM lists WHERE board_id = ? ORDER BY position ASC', [boardId], (err, lists) => {
-          if (err) return res.status(500).json({ error: err.message });
-          const board = { id: boardId, title, owner_id: req.user.id, lists };
-          res.status(201).json({ message: 'Board created', board });
-        });
-      }
-    };
-    defaultLists.forEach((listTitle, index) => {
-      db.run('INSERT INTO lists (board_id, title, position) VALUES (?, ?, ?)', [boardId, listTitle, index], respond);
+
+  db.get('SELECT COALESCE(MAX(position), -1) + 1 AS nextPosition FROM boards', [], (positionErr, row) => {
+    if (positionErr) return res.status(500).json({ error: positionErr.message });
+
+    const position = row?.nextPosition ?? 0;
+    db.run('INSERT INTO boards (title, owner_id, position) VALUES (?, ?, ?)', [title, req.user.id, position], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      const boardId = this.lastID;
+      const defaultLists = ['Assigned', 'Working', 'Done', 'On Hold', 'Revision', 'Finished'];
+      let completed = 0;
+      const respond = () => {
+        completed++;
+        if (completed === defaultLists.length) {
+          db.all('SELECT * FROM lists WHERE board_id = ? ORDER BY position ASC', [boardId], (err, lists) => {
+            if (err) return res.status(500).json({ error: err.message });
+            const board = { id: boardId, title, owner_id: req.user.id, position, lists };
+            res.status(201).json({ message: 'Board created', board });
+          });
+        }
+      };
+      defaultLists.forEach((listTitle, index) => {
+        db.run('INSERT INTO lists (board_id, title, position) VALUES (?, ?, ?)', [boardId, listTitle, index], respond);
+      });
     });
   });
 };
@@ -28,7 +34,7 @@ const getUserBoards = (db) => (req, res) => {
   const userId = req.user.id;
   if (req.user.role === 'admin') {
     db.all(
-      `SELECT * FROM boards ORDER BY created_at DESC`,
+      `SELECT * FROM boards ORDER BY position ASC, created_at ASC`,
       [],
       (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -43,13 +49,44 @@ const getUserBoards = (db) => (req, res) => {
      LEFT JOIN board_members bm ON bm.board_id = b.id
      LEFT JOIN users owner ON owner.id = b.owner_id
      WHERE b.owner_id = ? OR bm.user_id = ? OR owner.role = 'admin'
-     ORDER BY b.created_at DESC`,
+     ORDER BY b.position ASC, b.created_at ASC`,
     [userId, userId],
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
       res.json(rows);
     }
   );
+};
+
+const reorderBoards = (db) => (req, res) => {
+  const { boardIds } = req.body;
+  if (!Array.isArray(boardIds) || boardIds.length === 0) {
+    return res.status(400).json({ error: 'boardIds must be a non-empty array' });
+  }
+
+  const normalizedIds = boardIds.map((id) => Number(id)).filter((id) => Number.isInteger(id));
+  if (normalizedIds.length !== boardIds.length || new Set(normalizedIds).size !== normalizedIds.length) {
+    return res.status(400).json({ error: 'boardIds must contain unique numeric IDs' });
+  }
+
+  let completed = 0;
+  let sent = false;
+  const send = (status, data) => {
+    if (sent) return;
+    sent = true;
+    res.status(status).json(data);
+  };
+
+  normalizedIds.forEach((boardId, index) => {
+    db.run('UPDATE boards SET position = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [index, boardId], function(err) {
+      if (err) return send(500, { error: err.message });
+      if (this.changes === 0) return send(404, { error: `Board ${boardId} not found` });
+      completed++;
+      if (completed === normalizedIds.length) {
+        send(200, { message: 'Boards reordered' });
+      }
+    });
+  });
 };
 
 const getBoardById = (db) => (req, res) => {
@@ -216,8 +253,16 @@ const deleteBoard = (db) => (req, res) => {
 
 const getBoardMembers = (db) => (req, res) => {
   db.all(
-    `SELECT u.id, u.username, u.email, bm.role FROM board_members bm
-     JOIN users u ON u.id = bm.user_id WHERE bm.board_id = ?`,
+    `SELECT
+       u.id,
+       u.username,
+       u.email,
+       COALESCE(bm.role, u.role) AS role,
+       CASE WHEN bm.user_id IS NULL THEN 0 ELSE 1 END AS has_board_access
+     FROM users u
+     LEFT JOIN board_members bm ON bm.user_id = u.id AND bm.board_id = ?
+     WHERE u.status = 'approved' AND u.role != 'admin'
+     ORDER BY has_board_access DESC, LOWER(u.username), LOWER(u.email)`,
     [req.params.boardId],
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
@@ -276,5 +321,5 @@ const createUserAndAddToBoard = (db) => (req, res) => {
 
 module.exports = {
   createBoard, getUserBoards, getBoardById, updateBoardTitle, deleteBoard,
-  getBoardMembers, removeBoardMember, createUserAndAddToBoard,
+  getBoardMembers, removeBoardMember, createUserAndAddToBoard, reorderBoards,
 };

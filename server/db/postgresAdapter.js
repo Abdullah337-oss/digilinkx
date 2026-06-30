@@ -20,7 +20,8 @@ const schemaStatements = [
     title TEXT NOT NULL,
     owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP
+    updated_at TIMESTAMP,
+    position INTEGER DEFAULT 0
   )`,
   `CREATE TABLE IF NOT EXISTS board_members (
     id SERIAL PRIMARY KEY,

@@ -1072,6 +1072,10 @@
   max-height: calc(100vh - 180px);
 }
 
+.board-column-dragging {
+  flex-shrink: 0;
+}
+
 .board-column.dragging-over {
   background: #0e160e;
   border-color: rgba(255, 255, 255, 0.18);
@@ -1083,6 +1087,11 @@
   justify-content: space-between;
   gap: 6px;
   margin-bottom: 10px;
+  cursor: grab;
+}
+
+.board-column-header:active {
+  cursor: grabbing;
 }
 
 .board-cards-container {

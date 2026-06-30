@@ -139,6 +139,14 @@ function initializeDatabase() {
         }
       });
     }
+
+    if (!columnNames.has('position')) {
+      db.run(`ALTER TABLE boards ADD COLUMN position INTEGER DEFAULT 0`, (alterErr) => {
+        if (alterErr) {
+          console.error('Failed to add position column to boards table:', alterErr.message);
+        }
+      });
+    }
   });
 
   // Board members (for sharing boards with other users)

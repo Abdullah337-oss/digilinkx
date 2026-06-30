@@ -797,13 +797,37 @@ function Dashboard({ user, onLogout }) {
   // ── Drag & drop ────────────────────────────────────────────────────────────
 
   const handleDragEnd = async (result) => {
-    const { source, destination, draggableId } = result;
+    const { source, destination, draggableId, type } = result;
     if (!destination) return;
     if (
       source.droppableId === destination.droppableId &&
       source.index === destination.index
     )
       return;
+
+    if (type === 'BOARD') {
+      if (!isAdmin) return;
+
+      const reorderedBoards = Array.from(boards);
+      const [movedBoard] = reorderedBoards.splice(source.index, 1);
+      reorderedBoards.splice(destination.index, 0, movedBoard);
+
+      setBoards(reorderedBoards.map((board, index) => ({ ...board, position: index })));
+
+      try {
+        const token = localStorage.getItem('token');
+        await axios.put(
+          '/api/boards/reorder',
+          { boardIds: reorderedBoards.map((board) => board.id) },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setError('');
+      } catch (err) {
+        setError(err.response?.data?.error || 'Failed to move list');
+        fetchAllBoards();
+      }
+      return;
+    }
 
     const destBoardId = parseInt(destination.droppableId.replace('board-', ''), 10);
     const srcBoardId = parseInt(source.droppableId.replace('board-', ''), 10);
@@ -1160,16 +1184,34 @@ function Dashboard({ user, onLogout }) {
           <div className="loading">Loading...</div>
         ) : (
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="boards-canvas">
-              {boards.map((board) => (
-                <Droppable key={board.id} droppableId={`board-${board.id}`}>
+            <Droppable droppableId="dashboard-board-order" direction="horizontal" type="BOARD">
+              {(boardOrderProvided) => (
+                <div
+                  className="boards-canvas"
+                  ref={boardOrderProvided.innerRef}
+                  {...boardOrderProvided.droppableProps}
+                >
+              {boards.map((board, boardIndex) => (
+                <Draggable
+                  key={board.id}
+                  draggableId={`board-column-${board.id}`}
+                  index={boardIndex}
+                  isDragDisabled={!isAdmin || editingBoardId === board.id}
+                >
+                  {(boardDragProvided, boardDragSnapshot) => (
+                    <div
+                      ref={boardDragProvided.innerRef}
+                      {...boardDragProvided.draggableProps}
+                      className={boardDragSnapshot.isDragging ? 'board-column-dragging' : ''}
+                    >
+                <Droppable droppableId={`board-${board.id}`} type="CARD">
                   {(provided, snapshot) => (
                     <div
                       className={`board-column${snapshot.isDraggingOver ? ' dragging-over' : ''}`}
                       ref={provided.innerRef}
                       {...provided.droppableProps}
                     >
-                      <div className="board-column-header">
+                      <div className="board-column-header" {...boardDragProvided.dragHandleProps}>
                         {isAdmin && editingBoardId === board.id ? (
                           <input
                             className="board-column-title-input"
@@ -1191,7 +1233,7 @@ function Dashboard({ user, onLogout }) {
                               setEditingBoardId(board.id);
                               setEditedBoardTitle(board.title);
                             }}
-                            title={isAdmin ? 'Click to edit' : undefined}
+                            title={isAdmin ? 'Click to edit or drag header to move' : undefined}
                           >
                             {board.title}
                           </h3>
@@ -1252,7 +1294,11 @@ function Dashboard({ user, onLogout }) {
                     </div>
                   )}
                 </Droppable>
+                    </div>
+                  )}
+                </Draggable>
               ))}
+              {boardOrderProvided.placeholder}
 
               {isAdmin && (
                 <div className="list-add-placeholder">
@@ -1308,7 +1354,9 @@ function Dashboard({ user, onLogout }) {
                     : 'No boards available yet.'}
                 </p>
               )}
-            </div>
+                </div>
+              )}
+            </Droppable>
           </DragDropContext>
         )}
       </main>

@@ -627,7 +627,7 @@ function CardModal({
         ]
       : draftLabels;
 
-    const pendingMember = boardMembers.find((member) => Number(member.id) === pendingMemberId);
+    const pendingMember = allAvailableMembers.find((member) => Number(member.id) === pendingMemberId);
     const effectiveDraftMembers = pendingMember && !draftMembers.some((member) => Number(member.id) === pendingMemberId)
       ? [...draftMembers, pendingMember]
       : draftMembers;
@@ -763,7 +763,7 @@ function CardModal({
     if (!selectedBoardMemberId) return;
 
     const memberId = Number(selectedBoardMemberId);
-    const memberToAdd = boardMembers.find((member) => Number(member.id) === memberId);
+    const memberToAdd = allAvailableMembers.find((member) => Number(member.id) === memberId);
     if (!memberToAdd) {
       setError('Selected member not found');
       return;

@@ -35,18 +35,23 @@ function Board({ user, onLogout }) {
   };
 
   const sortedLists = [...(board?.lists || [])].sort((a, b) => {
+    const aHasPosition = Number.isInteger(a.position);
+    const bHasPosition = Number.isInteger(b.position);
+
+    if (aHasPosition || bHasPosition) {
+      const aPosition = aHasPosition ? a.position : 999;
+      const bPosition = bHasPosition ? b.position : 999;
+
+      if (aPosition !== bPosition) {
+        return aPosition - bPosition;
+      }
+    }
+
     const aRank = WORKFLOW_ORDER[(a.title || '').toLowerCase()] ?? 99;
     const bRank = WORKFLOW_ORDER[(b.title || '').toLowerCase()] ?? 99;
 
     if (aRank !== bRank) {
       return aRank - bRank;
-    }
-
-    const aPosition = Number.isInteger(a.position) ? a.position : 999;
-    const bPosition = Number.isInteger(b.position) ? b.position : 999;
-
-    if (aPosition !== bPosition) {
-      return aPosition - bPosition;
     }
 
     return a.id - b.id;
@@ -440,13 +445,44 @@ function Board({ user, onLogout }) {
   };
 
   const handleDragEnd = async (result) => {
-    const { source, destination, draggableId } = result;
+    const { source, destination, draggableId, type } = result;
 
     if (!destination) return;
     if (
       source.droppableId === destination.droppableId &&
       source.index === destination.index
     ) {
+      return;
+    }
+
+    if (type === 'LIST') {
+      if (user?.role !== 'admin') return;
+
+      const reorderedLists = Array.from(sortedLists);
+      const [movedList] = reorderedLists.splice(source.index, 1);
+      reorderedLists.splice(destination.index, 0, movedList);
+
+      setBoard((prevBoard) => ({
+        ...prevBoard,
+        lists: reorderedLists.map((list, index) => ({ ...list, position: index })),
+      }));
+
+      try {
+        const token = localStorage.getItem('token');
+        await Promise.all(
+          reorderedLists.map((list, index) =>
+            axios.put(
+              `/api/lists/${list.id}`,
+              { position: index },
+              { headers: { Authorization: `Bearer ${token}` } }
+            )
+          )
+        );
+        setError('');
+      } catch (err) {
+        setError(err.response?.data?.error || 'Failed to move list');
+        fetchBoard();
+      }
       return;
     }
 
@@ -526,16 +562,34 @@ function Board({ user, onLogout }) {
         )}
 
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="lists-container">
-            {sortedLists.map((list) => (
-              <Droppable key={list.id} droppableId={String(list.id)}>
+          <Droppable droppableId="board-list-order" direction="horizontal" type="LIST">
+            {(listOrderProvided) => (
+              <div
+                className="lists-container"
+                ref={listOrderProvided.innerRef}
+                {...listOrderProvided.droppableProps}
+              >
+            {sortedLists.map((list, listIndex) => (
+              <Draggable
+                key={list.id}
+                draggableId={`list-${list.id}`}
+                index={listIndex}
+                isDragDisabled={user?.role !== 'admin'}
+              >
+                {(listDragProvided, listDragSnapshot) => (
+                  <div
+                    ref={listDragProvided.innerRef}
+                    {...listDragProvided.draggableProps}
+                    className={listDragSnapshot.isDragging ? 'list-column-dragging' : ''}
+                  >
+              <Droppable droppableId={String(list.id)} type="CARD">
                 {(provided, snapshot) => (
                   <div
                     className={`list ${snapshot.isDraggingOver ? ' dragging-over' : ''}`}
                     ref={provided.innerRef}
                     {...provided.droppableProps}
                   >
-                    <h3 className="list-title">{list.title}</h3>
+                    <h3 className="list-title" {...listDragProvided.dragHandleProps}>{list.title}</h3>
                     <div className="cards-container">
                       {list.cards?.map((card, index) => (
                         <Draggable key={card.id} draggableId={String(card.id)} index={index}>
@@ -564,8 +618,14 @@ function Board({ user, onLogout }) {
                   </div>
                 )}
               </Droppable>
+                  </div>
+                )}
+              </Draggable>
             ))}
-          </div>
+            {listOrderProvided.placeholder}
+              </div>
+            )}
+          </Droppable>
         </DragDropContext>
       </main>
 

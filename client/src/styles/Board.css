@@ -74,6 +74,10 @@
   transition: background-color 0.2s;
 }
 
+.list-column-dragging {
+  flex-shrink: 0;
+}
+
 .list.dragging-over {
   background-color: rgba(0, 0, 0, 0.15);
 }
@@ -84,6 +88,11 @@
   font-weight: 600;
   margin: 0 0 12px 0;
   padding: 8px 12px;
+  cursor: grab;
+}
+
+.list-title:active {
+  cursor: grabbing;
 }
 
 .board-card-actions .btn,
