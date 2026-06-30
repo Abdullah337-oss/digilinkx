@@ -486,10 +486,43 @@ function Board({ user, onLogout }) {
       return;
     }
 
+    if (type !== 'CARD') {
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       const cardId = parseInt(draggableId);
       const targetListId = parseInt(destination.droppableId);
+
+      setBoard((prevBoard) => {
+        if (!prevBoard) return prevBoard;
+
+        const nextLists = (prevBoard.lists || []).map((list) => ({
+          ...list,
+          cards: [...(list.cards || [])],
+        }));
+        const sourceList = nextLists.find((list) => String(list.id) === source.droppableId);
+        const targetList = nextLists.find((list) => String(list.id) === destination.droppableId);
+        if (!sourceList || !targetList) return prevBoard;
+
+        const [movedCard] = sourceList.cards.splice(source.index, 1);
+        if (!movedCard) return prevBoard;
+
+        targetList.cards.splice(destination.index, 0, {
+          ...movedCard,
+          list_id: targetListId,
+          position: destination.index,
+        });
+
+        return {
+          ...prevBoard,
+          lists: nextLists.map((list) => ({
+            ...list,
+            cards: (list.cards || []).map((card, index) => ({ ...card, position: index })),
+          })),
+        };
+      });
 
       await axios.put(
         `/api/cards/${cardId}/move`,
@@ -500,6 +533,7 @@ function Board({ user, onLogout }) {
       fetchBoard();
     } catch (err) {
       setError('Failed to move card');
+      fetchBoard();
     }
   };
 

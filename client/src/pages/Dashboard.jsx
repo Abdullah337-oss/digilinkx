@@ -829,10 +829,41 @@ function Dashboard({ user, onLogout }) {
       return;
     }
 
+    if (type !== 'CARD') {
+      return;
+    }
+
     const destBoardId = parseInt(destination.droppableId.replace('board-', ''), 10);
     const srcBoardId = parseInt(source.droppableId.replace('board-', ''), 10);
     const destBoard = boards.find((b) => b.id === destBoardId);
     if (!destBoard?.firstListId) return;
+
+    const previousBoards = boards;
+    setBoards((currentBoards) => {
+      const nextBoards = currentBoards.map((board) => ({
+        ...board,
+        flatCards: [...(board.flatCards || [])],
+      }));
+
+      const sourceBoard = nextBoards.find((board) => board.id === srcBoardId);
+      const destinationBoard = nextBoards.find((board) => board.id === destBoardId);
+      if (!sourceBoard || !destinationBoard) {
+        return currentBoards;
+      }
+
+      const [movedCard] = sourceBoard.flatCards.splice(source.index, 1);
+      if (!movedCard) {
+        return currentBoards;
+      }
+
+      destinationBoard.flatCards.splice(destination.index, 0, {
+        ...movedCard,
+        boardId: destBoardId,
+        list_id: destinationBoard.firstListId || movedCard.list_id,
+      });
+
+      return nextBoards;
+    });
 
     try {
       const token = localStorage.getItem('token');
@@ -845,6 +876,7 @@ function Dashboard({ user, onLogout }) {
         srcBoardId === destBoardId ? [srcBoardId] : [srcBoardId, destBoardId];
       await Promise.all(toRefresh.map(refreshBoard));
     } catch (err) {
+      setBoards(previousBoards);
       setError('Failed to move card');
     }
   };
