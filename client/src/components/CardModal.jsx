@@ -316,6 +316,23 @@ function CardModal({
     return `${hours}:${minutes}`;
   };
 
+  const normalizeDateInputValue = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string') {
+      const isoDateMatch = value.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (isoDateMatch) return isoDateMatch[1];
+    }
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? '' : formatDateInputValue(parsed);
+  };
+
+  const normalizeTimeInputValue = (value) => {
+    if (!value) return '';
+    const timeMatch = String(value).match(/^(\d{2}:\d{2})/);
+    return timeMatch ? timeMatch[1] : '';
+  };
+
   const normalizeHour = (hourValue, meridiem) => {
     let hour = Number(hourValue);
     if (Number.isNaN(hour)) return null;
@@ -563,8 +580,8 @@ function CardModal({
         });
         setDescription(response.data.description || '');
         setCardTitle(response.data.title || '');
-        setDueDate(response.data.dates?.due_date || '');
-        setDueTime(response.data.dates?.due_time || '');
+        setDueDate(normalizeDateInputValue(response.data.dates?.due_date));
+        setDueTime(normalizeTimeInputValue(response.data.dates?.due_time));
         setDraftLabels(response.data.labels || []);
         setDraftMembers(response.data.members || []);
       } catch (err) {
@@ -596,8 +613,8 @@ function CardModal({
       setCardData(refreshedCard);
       setCardTitle(refreshedCard.title || '');
       setDescription(refreshedCard.description || '');
-      setDueDate(refreshedCard.dates?.due_date || '');
-      setDueTime(refreshedCard.dates?.due_time || '');
+      setDueDate(normalizeDateInputValue(refreshedCard.dates?.due_date));
+      setDueTime(normalizeTimeInputValue(refreshedCard.dates?.due_time));
       setDraftLabels(refreshedCard.labels || []);
       setDraftMembers(refreshedCard.members || []);
       onCardUpdate(refreshedCard);
@@ -634,8 +651,8 @@ function CardModal({
 
     const currentTitle = cardData.title || '';
     const currentDescription = cardData.description || '';
-    const currentDueDate = cardData.dates?.due_date || '';
-    const currentDueTime = cardData.dates?.due_time || '';
+    const currentDueDate = normalizeDateInputValue(cardData.dates?.due_date);
+    const currentDueTime = normalizeTimeInputValue(cardData.dates?.due_time);
     const currentLabels = cardData.labels || [];
     const currentMembers = cardData.members || [];
 
@@ -673,7 +690,7 @@ function CardModal({
       if (hasDueDateUpdate) {
         await axios.post(
           `/api/card-details/${card.id}/dates`,
-          { dueDate: dueDate || null, dueTime: dueTime || null, startDate: null },
+          { due_date: dueDate || null, due_time: dueTime || null, start_date: null },
           { headers: { Authorization: `Bearer ${token}` } }
         );
       }

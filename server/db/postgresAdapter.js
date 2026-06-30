@@ -199,6 +199,7 @@ class PostgresAdapter {
     }
     await this.ensureColumn('boards', 'updated_at', 'TIMESTAMP');
     await this.ensureColumn('boards', 'position', 'INTEGER DEFAULT 0');
+    await this.ensureColumn('card_dates', 'due_time', 'TEXT');
     console.log('Connected to PostgreSQL database');
   }
 

@@ -95,13 +95,15 @@ const removeMember = (db) => (req, res) => {
 };
 
 const setDates = (db) => (req, res) => {
-  const { start_date, due_date } = req.body;
+  const startDate = req.body.start_date ?? req.body.startDate ?? null;
+  const dueDate = req.body.due_date ?? req.body.dueDate ?? null;
+  const dueTime = req.body.due_time ?? req.body.dueTime ?? null;
   db.get(`SELECT id FROM card_dates WHERE card_id = ?`, [req.params.cardId], (err, existing) => {
     if (err) return res.status(500).json({ error: err.message });
     if (existing) {
       db.run(
-        `UPDATE card_dates SET start_date = ?, due_date = ? WHERE card_id = ?`,
-        [start_date || null, due_date || null, req.params.cardId],
+        `UPDATE card_dates SET start_date = ?, due_date = ?, due_time = ? WHERE card_id = ?`,
+        [startDate || null, dueDate || null, dueTime || null, req.params.cardId],
         function (err) {
           if (err) return res.status(500).json({ error: err.message });
           db.get(`SELECT * FROM card_dates WHERE card_id = ?`, [req.params.cardId], (err, dates) => {
@@ -112,8 +114,8 @@ const setDates = (db) => (req, res) => {
       );
     } else {
       db.run(
-        `INSERT INTO card_dates (card_id, start_date, due_date) VALUES (?, ?, ?)`,
-        [req.params.cardId, start_date || null, due_date || null],
+        `INSERT INTO card_dates (card_id, start_date, due_date, due_time) VALUES (?, ?, ?, ?)`,
+        [req.params.cardId, startDate || null, dueDate || null, dueTime || null],
         function (err) {
           if (err) return res.status(500).json({ error: err.message });
           db.get(`SELECT * FROM card_dates WHERE card_id = ?`, [req.params.cardId], (err, dates) => {
