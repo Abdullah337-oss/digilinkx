@@ -1092,50 +1092,13 @@ function Dashboard({ user, onLogout }) {
                 <div className="profile-dropdown" ref={profileMenuRef}>
                   {isAdmin && (
                     <div className="profile-dropdown-section">
-                      <button
-                        type="button"
-                        className="pending-requests-toggle"
-                        onClick={openPendingRequestModal}
-                      >
-                        Pending Requests ({pendingUsers.length})
-                      </button>
-                      <button
-                        type="button"
-                        className="profile-dropdown-add-member"
-                        onClick={() => {
-                          setShowAddMember(true);
-                          setShowProfileMenu(false);
-                        }}
-                      >
-                        Add Member
-                      </button>
-                      <button
-                        type="button"
-                        className="profile-dropdown-view-members"
-                        onClick={() => {
-                          setShowViewMembers(true);
-                          setShowProfileMenu(false);
-                        }}
-                      >
-                        View Members
-                      </button>
-                      <button
-                        type="button"
-                        className="profile-dropdown-history"
-                        onClick={() => {
-                          navigate('/history');
-                          setShowProfileMenu(false);
-                        }}
-                      >
-                        History
-                      </button>
                       <div className="profile-move-section">
                         <button
                           type="button"
                           className="profile-dropdown-move-toggle"
                           onClick={toggleMoveSection}
                         >
-                          Move
+                          Move Lists
                         </button>
                         {showMoveSection && (
                           <div className="profile-move-panel">
@@ -1195,6 +1158,43 @@ function Dashboard({ user, onLogout }) {
                           </div>
                         )}
                       </div>
+                      <button
+                        type="button"
+                        className="pending-requests-toggle"
+                        onClick={openPendingRequestModal}
+                      >
+                        Pending Requests ({pendingUsers.length})
+                      </button>
+                      <button
+                        type="button"
+                        className="profile-dropdown-add-member"
+                        onClick={() => {
+                          setShowAddMember(true);
+                          setShowProfileMenu(false);
+                        }}
+                      >
+                        Add Member
+                      </button>
+                      <button
+                        type="button"
+                        className="profile-dropdown-view-members"
+                        onClick={() => {
+                          setShowViewMembers(true);
+                          setShowProfileMenu(false);
+                        }}
+                      >
+                        View Members
+                      </button>
+                      <button
+                        type="button"
+                        className="profile-dropdown-history"
+                        onClick={() => {
+                          navigate('/history');
+                          setShowProfileMenu(false);
+                        }}
+                      >
+                        History
+                      </button>
                     </div>
                   )}
 
