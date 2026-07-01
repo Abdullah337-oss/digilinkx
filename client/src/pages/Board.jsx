@@ -707,7 +707,7 @@ function Board({ user, onLogout }) {
                         className="board-profile-dropdown-move-toggle"
                         onClick={toggleMoveSection}
                       >
-                        Move Lists
+                        Move
                       </button>
                       {showMoveSection && (
                         <div className="board-profile-move-panel">

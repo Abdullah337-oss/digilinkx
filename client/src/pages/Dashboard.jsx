@@ -1092,72 +1092,70 @@ function Dashboard({ user, onLogout }) {
                 <div className="profile-dropdown" ref={profileMenuRef}>
                   {isAdmin && (
                     <div className="profile-dropdown-section">
-                      <div className="profile-move-section">
-                        <button
-                          type="button"
-                          className="profile-dropdown-move-toggle"
-                          onClick={toggleMoveSection}
-                        >
-                          Move Lists
-                        </button>
-                        {showMoveSection && (
-                          <div className="profile-move-panel">
-                            <DragDropContext onDragEnd={handleMoveSectionDragEnd}>
-                              <Droppable droppableId="profile-move-list" type="PROFILE_MOVE_LIST">
-                                {(provided) => (
-                                  <div
-                                    className="profile-move-list"
-                                    ref={provided.innerRef}
-                                    {...provided.droppableProps}
-                                  >
-                                    {moveDraftBoards.map((board, index) => (
-                                      <Draggable
-                                        key={board.id}
-                                        draggableId={`profile-move-${board.id}`}
-                                        index={index}
-                                      >
-                                        {(dragProvided, snapshot) => (
-                                          <div
-                                            ref={dragProvided.innerRef}
-                                            {...dragProvided.draggableProps}
-                                            {...dragProvided.dragHandleProps}
-                                            className={`profile-move-item${snapshot.isDragging ? ' dragging' : ''}`}
-                                          >
-                                            <span className="profile-move-grip">::</span>
-                                            <span className="profile-move-title">{board.title}</span>
-                                          </div>
-                                        )}
-                                      </Draggable>
-                                    ))}
-                                    {provided.placeholder}
-                                  </div>
-                                )}
-                              </Droppable>
-                            </DragDropContext>
-                            <div className="profile-move-actions">
-                              <button
-                                type="button"
-                                className="profile-move-cancel"
-                                onClick={() => {
-                                  setShowMoveSection(false);
-                                  setMoveDraftBoards(boards.map((board) => ({ id: board.id, title: board.title })));
-                                }}
-                                disabled={savingMoveOrder}
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                className="profile-move-save"
-                                onClick={handleSaveMoveOrder}
-                                disabled={savingMoveOrder || moveDraftBoards.length === 0}
-                              >
-                                {savingMoveOrder ? 'Saving...' : 'Save'}
-                              </button>
-                            </div>
+                      <button
+                        type="button"
+                        className="profile-dropdown-move-toggle"
+                        onClick={toggleMoveSection}
+                      >
+                        Move
+                      </button>
+                      {showMoveSection && (
+                        <div className="profile-move-panel">
+                          <DragDropContext onDragEnd={handleMoveSectionDragEnd}>
+                            <Droppable droppableId="profile-move-list" type="PROFILE_MOVE_LIST">
+                              {(provided) => (
+                                <div
+                                  className="profile-move-list"
+                                  ref={provided.innerRef}
+                                  {...provided.droppableProps}
+                                >
+                                  {moveDraftBoards.map((board, index) => (
+                                    <Draggable
+                                      key={board.id}
+                                      draggableId={`profile-move-${board.id}`}
+                                      index={index}
+                                    >
+                                      {(dragProvided, snapshot) => (
+                                        <div
+                                          ref={dragProvided.innerRef}
+                                          {...dragProvided.draggableProps}
+                                          {...dragProvided.dragHandleProps}
+                                          className={`profile-move-item${snapshot.isDragging ? ' dragging' : ''}`}
+                                        >
+                                          <span className="profile-move-grip">::</span>
+                                          <span className="profile-move-title">{board.title}</span>
+                                        </div>
+                                      )}
+                                    </Draggable>
+                                  ))}
+                                  {provided.placeholder}
+                                </div>
+                              )}
+                            </Droppable>
+                          </DragDropContext>
+                          <div className="profile-move-actions">
+                            <button
+                              type="button"
+                              className="profile-move-cancel"
+                              onClick={() => {
+                                setShowMoveSection(false);
+                                setMoveDraftBoards(boards.map((board) => ({ id: board.id, title: board.title })));
+                              }}
+                              disabled={savingMoveOrder}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              className="profile-move-save"
+                              onClick={handleSaveMoveOrder}
+                              disabled={savingMoveOrder || moveDraftBoards.length === 0}
+                            >
+                              {savingMoveOrder ? 'Saving...' : 'Save'}
+                            </button>
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                       <button
                         type="button"
                         className="pending-requests-toggle"
