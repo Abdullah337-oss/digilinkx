@@ -362,7 +362,10 @@ const downloadAttachment = (db) => (req, res) => {
   db.get(`SELECT * FROM attachments WHERE id = ?`, [req.params.attachmentId], (err, attachment) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!attachment) return res.status(404).json({ error: 'Attachment not found' });
-    if ((attachment.attachment_type || 'file') === 'link' || attachment.url) {
+    if ((attachment.attachment_type || 'file') === 'link') {
+      return res.redirect(attachment.url);
+    }
+    if (attachment.url && isSupabaseStorageEnabled()) {
       return res.redirect(attachment.url);
     }
     const filePath = path.join(getUploadsPath(), attachment.file_path);
@@ -398,7 +401,10 @@ const viewSharedAttachment = (db) => (req, res) => {
   db.get(`SELECT * FROM attachments WHERE share_token = ? OR id = ?`, [shareToken, shareToken], (err, attachment) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!attachment) return res.status(404).json({ error: 'Attachment not found' });
-    if ((attachment.attachment_type || 'file') === 'link' || attachment.url) {
+    if ((attachment.attachment_type || 'file') === 'link') {
+      return res.redirect(attachment.url);
+    }
+    if (attachment.url && isSupabaseStorageEnabled()) {
       return res.redirect(attachment.url);
     }
     const filePath = path.join(getUploadsPath(), attachment.file_path);

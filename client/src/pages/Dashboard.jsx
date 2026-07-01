@@ -56,6 +56,9 @@ function Dashboard({ user, onLogout }) {
   const [showPendingRequestModal, setShowPendingRequestModal] = useState(false);
   const [showConnectionSettings, setShowConnectionSettings] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [showMoveSection, setShowMoveSection] = useState(false);
+  const [moveDraftBoards, setMoveDraftBoards] = useState([]);
+  const [savingMoveOrder, setSavingMoveOrder] = useState(false);
 
   const navigate = useNavigate();
   const isAdmin = user?.role === 'admin';
@@ -136,6 +139,12 @@ function Dashboard({ user, onLogout }) {
   useEffect(() => {
     localStorage.setItem('dashboardDarkMode', isDarkMode ? 'true' : 'false');
   }, [isDarkMode]);
+
+  useEffect(() => {
+    if (!showMoveSection) {
+      setMoveDraftBoards(boards.map((board) => ({ id: board.id, title: board.title })));
+    }
+  }, [boards, showMoveSection]);
 
   useEffect(() => {
     const totalThemes = DASHBOARD_BACKGROUND_THEMES.length;
@@ -794,6 +803,58 @@ function Dashboard({ user, onLogout }) {
     setSelectedCard(card);
   };
 
+  const toggleMoveSection = () => {
+    if (!isAdmin) return;
+    setMoveDraftBoards(boards.map((board) => ({ id: board.id, title: board.title })));
+    setShowMoveSection((prev) => !prev);
+  };
+
+  const handleMoveSectionDragEnd = (result) => {
+    const { source, destination } = result;
+    if (!destination) return;
+    if (source.index === destination.index) return;
+
+    setMoveDraftBoards((current) => {
+      const next = Array.from(current);
+      const [movedBoard] = next.splice(source.index, 1);
+      next.splice(destination.index, 0, movedBoard);
+      return next;
+    });
+  };
+
+  const handleSaveMoveOrder = async () => {
+    if (!isAdmin || moveDraftBoards.length === 0) return;
+
+    const reorderedBoards = moveDraftBoards
+      .map((draftBoard) => boards.find((board) => board.id === draftBoard.id))
+      .filter(Boolean);
+
+    if (reorderedBoards.length !== boards.length) {
+      setError('List order changed while editing. Please try again.');
+      setMoveDraftBoards(boards.map((board) => ({ id: board.id, title: board.title })));
+      return;
+    }
+
+    setSavingMoveOrder(true);
+    setBoards(reorderedBoards.map((board, index) => ({ ...board, position: index })));
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(
+        '/api/boards/reorder',
+        { boardIds: moveDraftBoards.map((board) => board.id) },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setShowMoveSection(false);
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save list order');
+      fetchAllBoards();
+    } finally {
+      setSavingMoveOrder(false);
+    }
+  };
+
   const handleBoardColumnDragStart = (boardId, event) => {
     if (!isAdmin || editingBoardId === boardId) return;
     event.dataTransfer.effectAllowed = 'move';
@@ -1068,6 +1129,72 @@ function Dashboard({ user, onLogout }) {
                       >
                         History
                       </button>
+                      <div className="profile-move-section">
+                        <button
+                          type="button"
+                          className="profile-dropdown-move-toggle"
+                          onClick={toggleMoveSection}
+                        >
+                          Move
+                        </button>
+                        {showMoveSection && (
+                          <div className="profile-move-panel">
+                            <DragDropContext onDragEnd={handleMoveSectionDragEnd}>
+                              <Droppable droppableId="profile-move-list" type="PROFILE_MOVE_LIST">
+                                {(provided) => (
+                                  <div
+                                    className="profile-move-list"
+                                    ref={provided.innerRef}
+                                    {...provided.droppableProps}
+                                  >
+                                    {moveDraftBoards.map((board, index) => (
+                                      <Draggable
+                                        key={board.id}
+                                        draggableId={`profile-move-${board.id}`}
+                                        index={index}
+                                      >
+                                        {(dragProvided, snapshot) => (
+                                          <div
+                                            ref={dragProvided.innerRef}
+                                            {...dragProvided.draggableProps}
+                                            {...dragProvided.dragHandleProps}
+                                            className={`profile-move-item${snapshot.isDragging ? ' dragging' : ''}`}
+                                          >
+                                            <span className="profile-move-grip">::</span>
+                                            <span className="profile-move-title">{board.title}</span>
+                                          </div>
+                                        )}
+                                      </Draggable>
+                                    ))}
+                                    {provided.placeholder}
+                                  </div>
+                                )}
+                              </Droppable>
+                            </DragDropContext>
+                            <div className="profile-move-actions">
+                              <button
+                                type="button"
+                                className="profile-move-cancel"
+                                onClick={() => {
+                                  setShowMoveSection(false);
+                                  setMoveDraftBoards(boards.map((board) => ({ id: board.id, title: board.title })));
+                                }}
+                                disabled={savingMoveOrder}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                className="profile-move-save"
+                                onClick={handleSaveMoveOrder}
+                                disabled={savingMoveOrder || moveDraftBoards.length === 0}
+                              >
+                                {savingMoveOrder ? 'Saving...' : 'Save'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 

@@ -931,7 +931,7 @@ function CardModal({
   };
 
   const handleDownloadAttachment = async (attachment) => {
-    if ((attachment?.attachment_type || 'file') === 'link' || attachment?.url) {
+    if ((attachment?.attachment_type || 'file') === 'link') {
       if (attachment.url) {
         window.open(attachment.url, '_blank', 'noopener,noreferrer');
       }
