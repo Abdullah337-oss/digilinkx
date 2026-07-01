@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
@@ -10,6 +10,14 @@ import '../styles/Board.css';
 const ADMIN_NOTIFICATION_ACTIONS = new Set(['card_created', 'attachment_uploaded']);
 const NOTIFICATION_DURATION_MS = 10000;
 const BOARD_NOTIFICATION_POLL_MS = 5000;
+const WORKFLOW_ORDER = {
+  assigned: 1,
+  working: 2,
+  done: 3,
+  'on hold': 4,
+  revision: 5,
+  finished: 6,
+};
 
 function Board({ user, onLogout }) {
   const { boardId } = useParams();
@@ -21,20 +29,16 @@ function Board({ user, onLogout }) {
   const [boardMembers, setBoardMembers] = useState([]);
   const [selectedCardIds, setSelectedCardIds] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showMoveSection, setShowMoveSection] = useState(false);
+  const [moveDraftLists, setMoveDraftLists] = useState([]);
+  const [savingMoveOrder, setSavingMoveOrder] = useState(false);
+  const profileMenuRef = useRef(null);
   const seenActivityIdsRef = useRef(new Set());
   const notificationsInitializedRef = useRef(false);
   const notificationTimeoutsRef = useRef(new Map());
 
-  const WORKFLOW_ORDER = {
-    assigned: 1,
-    working: 2,
-    done: 3,
-    'on hold': 4,
-    revision: 5,
-    finished: 6,
-  };
-
-  const sortedLists = [...(board?.lists || [])].sort((a, b) => {
+  const sortedLists = useMemo(() => [...(board?.lists || [])].sort((a, b) => {
     const aHasPosition = Number.isInteger(a.position);
     const bHasPosition = Number.isInteger(b.position);
 
@@ -55,7 +59,7 @@ function Board({ user, onLogout }) {
     }
 
     return a.id - b.id;
-  });
+  }), [board?.lists]);
 
   useEffect(() => {
     seenActivityIdsRef.current = new Set();
@@ -96,6 +100,25 @@ function Board({ user, onLogout }) {
 
     setSelectedCardIds((prev) => prev.filter((id) => existingCardIds.has(id)));
   }, [board]);
+
+  useEffect(() => {
+    const handleClickOutsideProfile = (event) => {
+      if (showProfileMenu && profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutsideProfile);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutsideProfile);
+    };
+  }, [showProfileMenu]);
+
+  useEffect(() => {
+    if (!showMoveSection) {
+      setMoveDraftLists(sortedLists.map((list) => ({ id: list.id, title: list.title })));
+    }
+  }, [showMoveSection, sortedLists]);
 
   const dismissNotification = (notificationId) => {
     const timeoutId = notificationTimeoutsRef.current.get(notificationId);
@@ -586,6 +609,64 @@ function Board({ user, onLogout }) {
     navigate('/login');
   };
 
+  const toggleMoveSection = () => {
+    if (user?.role !== 'admin') return;
+    setMoveDraftLists(sortedLists.map((list) => ({ id: list.id, title: list.title })));
+    setShowMoveSection((prev) => !prev);
+  };
+
+  const handleMoveSectionDragEnd = (result) => {
+    const { source, destination } = result;
+    if (!destination || source.index === destination.index) return;
+
+    setMoveDraftLists((current) => {
+      const next = Array.from(current);
+      const [movedList] = next.splice(source.index, 1);
+      next.splice(destination.index, 0, movedList);
+      return next;
+    });
+  };
+
+  const handleSaveMoveOrder = async () => {
+    if (user?.role !== 'admin' || !board || moveDraftLists.length === 0) return;
+
+    const reorderedLists = moveDraftLists
+      .map((draftList) => (board.lists || []).find((list) => list.id === draftList.id))
+      .filter(Boolean);
+
+    if (reorderedLists.length !== (board.lists || []).length) {
+      setError('List order changed while editing. Please try again.');
+      setMoveDraftLists(sortedLists.map((list) => ({ id: list.id, title: list.title })));
+      return;
+    }
+
+    setSavingMoveOrder(true);
+    setBoard((prevBoard) => ({
+      ...prevBoard,
+      lists: reorderedLists.map((list, index) => ({ ...list, position: index })),
+    }));
+
+    try {
+      const token = localStorage.getItem('token');
+      await Promise.all(
+        reorderedLists.map((list, index) =>
+          axios.put(
+            `/api/lists/${list.id}`,
+            { position: index },
+            { headers: { Authorization: `Bearer ${token}` } }
+          )
+        )
+      );
+      setShowMoveSection(false);
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save list order');
+      fetchBoard();
+    } finally {
+      setSavingMoveOrder(false);
+    }
+  };
+
 
   if (loading) {
     return <div className="loading">Loading board...</div>;
@@ -605,8 +686,101 @@ function Board({ user, onLogout }) {
           </button>
           <h1>{board.title}</h1>
           <div className="user-info">
-            <span>{user?.username}</span>
-            <button className="logout-btn" onClick={handleLogout}>Logout</button>
+            <span>
+              Welcome, <strong>{user?.username}</strong>
+            </span>
+            <div className="board-profile-area" ref={profileMenuRef}>
+              <button
+                type="button"
+                className="board-profile-avatar-btn"
+                onClick={() => setShowProfileMenu((prev) => !prev)}
+              >
+                {user?.username ? user.username.slice(0, 2).toUpperCase() : 'NA'}
+              </button>
+
+              {showProfileMenu && (
+                <div className="board-profile-dropdown">
+                  {user?.role === 'admin' && (
+                    <div className="board-profile-move-section">
+                      <button
+                        type="button"
+                        className="board-profile-dropdown-move-toggle"
+                        onClick={toggleMoveSection}
+                      >
+                        Move
+                      </button>
+                      {showMoveSection && (
+                        <div className="board-profile-move-panel">
+                          <DragDropContext onDragEnd={handleMoveSectionDragEnd}>
+                            <Droppable droppableId="board-profile-move-list" type="BOARD_PROFILE_MOVE_LIST">
+                              {(provided) => (
+                                <div
+                                  className="board-profile-move-list"
+                                  ref={provided.innerRef}
+                                  {...provided.droppableProps}
+                                >
+                                  {moveDraftLists.map((list, index) => (
+                                    <Draggable
+                                      key={list.id}
+                                      draggableId={`board-profile-move-${list.id}`}
+                                      index={index}
+                                    >
+                                      {(dragProvided, snapshot) => (
+                                        <div
+                                          ref={dragProvided.innerRef}
+                                          {...dragProvided.draggableProps}
+                                          {...dragProvided.dragHandleProps}
+                                          className={`board-profile-move-item${snapshot.isDragging ? ' dragging' : ''}`}
+                                        >
+                                          <span className="board-profile-move-grip">::</span>
+                                          <span className="board-profile-move-title">{list.title}</span>
+                                        </div>
+                                      )}
+                                    </Draggable>
+                                  ))}
+                                  {provided.placeholder}
+                                </div>
+                              )}
+                            </Droppable>
+                          </DragDropContext>
+                          <div className="board-profile-move-actions">
+                            <button
+                              type="button"
+                              className="board-profile-move-cancel"
+                              onClick={() => {
+                                setShowMoveSection(false);
+                                setMoveDraftLists(sortedLists.map((list) => ({ id: list.id, title: list.title })));
+                              }}
+                              disabled={savingMoveOrder}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              className="board-profile-move-save"
+                              onClick={handleSaveMoveOrder}
+                              disabled={savingMoveOrder || moveDraftLists.length === 0}
+                            >
+                              {savingMoveOrder ? 'Saving...' : 'Save'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      handleLogout();
+                    }}
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>

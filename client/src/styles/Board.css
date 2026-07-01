@@ -42,6 +42,143 @@
   flex: 1;
 }
 
+.board-header .user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: white;
+}
+
+.board-profile-area {
+  position: relative;
+}
+
+.board-profile-avatar-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffc247, #ff9f1c);
+  color: #3b2a00;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+}
+
+.board-profile-dropdown {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  min-width: 230px;
+  overflow: hidden;
+  z-index: 30;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  background: #1e2430;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.board-profile-dropdown button {
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: #eddcdc;
+  cursor: pointer;
+  text-align: left;
+  font-weight: 500;
+}
+
+.board-profile-dropdown button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.board-profile-move-section {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.board-profile-move-panel {
+  padding: 4px 10px 10px;
+}
+
+.board-profile-move-list {
+  display: grid;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.board-profile-move-item {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+  cursor: grab;
+  user-select: none;
+}
+
+.board-profile-move-item.dragging {
+  background: #2b3445;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+.board-profile-move-grip {
+  color: rgba(248, 250, 252, 0.58);
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+
+.board-profile-move-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.board-profile-move-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.board-profile-dropdown .board-profile-move-actions button {
+  padding: 8px 10px;
+  border-radius: 7px;
+  text-align: center;
+}
+
+.board-profile-dropdown .board-profile-move-cancel {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.board-profile-dropdown .board-profile-move-save {
+  background: #ffc247;
+  color: #3b2a00;
+}
+
+.board-profile-dropdown .board-profile-move-save:hover {
+  background: #ffd06d;
+}
+
+.board-profile-dropdown .board-profile-move-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .board-content {
   flex: 1;
   padding: 20px;
